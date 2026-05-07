@@ -1,14 +1,13 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Decimal } from '@prisma/client/runtime/library'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | string | Decimal): string {
-  const num = typeof amount === 'string' || amount instanceof Decimal 
-    ? parseFloat(String(amount)) 
+export function formatCurrency(amount: number | string): string {
+  const num = typeof amount === 'string'
+    ? parseFloat(amount)
     : amount
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
