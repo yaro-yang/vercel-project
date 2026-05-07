@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Settings } from 'lucide-react'
 
 export default async function TemplatesPage() {
-  const templates = await getTemplates()
+  const result = await getTemplates()
+  const templates = result.success ? result.data : []
 
   const typeLabels: Record<string, string> = {
     STANDARD: '标准订单',
