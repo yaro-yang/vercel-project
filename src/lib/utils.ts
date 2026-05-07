@@ -5,10 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | string): string {
+export function formatCurrency(amount: unknown): string {
+  if (amount === null || amount === undefined) return '-';
   const num = typeof amount === 'string'
     ? parseFloat(amount)
-    : amount
+    : typeof amount === 'number'
+      ? amount
+      : parseFloat(String(amount))
+  if (isNaN(num)) return '-';
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
     currency: 'CNY',

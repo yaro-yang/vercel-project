@@ -442,3 +442,24 @@ export async function getOrderStats() {
     return { total: 0, pending: 0, processing: 0, completed: 0, todayCount: 0 };
   }
 }
+
+/**
+ * 检查外部编码是否存在
+ */
+export async function checkExternalNoExists(externalNos: string[]): Promise<Set<string>> {
+  if (externalNos.length === 0) return new Set();
+  
+  try {
+    const orders = await prisma.order.findMany({
+      where: {
+        externalCode: { in: externalNos },
+      },
+      select: { externalCode: true },
+    });
+    
+    return new Set(orders.map(o => o.externalCode).filter((code): code is string => code !== null));
+  } catch (error) {
+    console.error("Check external no exists error:", error);
+    return new Set();
+  }
+}

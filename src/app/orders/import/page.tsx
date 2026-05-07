@@ -9,8 +9,8 @@ import {
   exportToExcel,
   STANDARD_FIELDS,
   TEMPERATURE_OPTIONS,
-  type FieldMapping 
 } from "@/lib/parsers/excel";
+import type { FieldMapping } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -316,7 +316,7 @@ export default function ImportPage() {
       }
     }
 
-    if (row.weight !== undefined && row.weight !== "" && (isNaN(Number(row.weight)) || Number(row.weight) <= 0)) {
+    if (row.weight !== undefined && row.weight !== null && (isNaN(Number(row.weight)) || Number(row.weight) <= 0)) {
       errors.push({
         type: "VALIDATION_ERROR",
         row: rowIndex,
@@ -325,7 +325,7 @@ export default function ImportPage() {
       });
     }
 
-    if (row.quantity !== undefined && row.quantity !== "" && (isNaN(Number(row.quantity)) || Number(row.quantity) <= 0)) {
+    if (row.quantity !== undefined && row.quantity !== null && (isNaN(Number(row.quantity)) || Number(row.quantity) <= 0)) {
       errors.push({
         type: "VALIDATION_ERROR",
         row: rowIndex,
@@ -460,7 +460,9 @@ export default function ImportPage() {
     const stats: Record<string, number> = {};
     editableData.forEach((row) => {
       row._errors.forEach((e) => {
-        stats[e.field] = (stats[e.field] || 0) + 1;
+        if (e.field) {
+          stats[e.field] = (stats[e.field] || 0) + 1;
+        }
       });
     });
     return stats;
@@ -480,7 +482,7 @@ export default function ImportPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setState((prev) => ({ ...prev, step: "upload", ...initialState }))}
+                  onClick={() => setState((prev) => ({ ...prev, file: null, parseResult: null, parseError: null, editableData: [], mappings: {}, step: "upload" as const }))}
                 >
                   重新上传
                 </Button>
@@ -711,7 +713,7 @@ export default function ImportPage() {
                     </div>
                     <select
                       value={tempMapping[field.key] || ""}
-                      onChange={(e) => setTempMapping((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      onChange={(e) => setTempMapping((prev: Record<string, string>) => ({ ...prev, [field.key]: e.target.value }))}
                       className="flex-1 border rounded-md px-3 py-2 text-sm"
                     >
                       <option value="">-- 不映射 --</option>
@@ -1009,7 +1011,7 @@ export default function ImportPage() {
                 <Button variant="outline" onClick={() => window.location.href = "/orders"}>
                   查看订单列表
                 </Button>
-                <Button onClick={() => setState((prev) => ({ ...prev, step: "upload", ...initialState }))}>
+                <Button onClick={() => setState((prev) => ({ ...prev, file: null, parseResult: null, parseError: null, editableData: [], mappings: {}, step: "upload" as const }))}>
                   继续导入
                 </Button>
               </div>

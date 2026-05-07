@@ -73,7 +73,7 @@ export function FileUpload({ onFileParsed, onError, maxSize = 50 }: FileUploadPr
       clearInterval(progressInterval)
       setProgress(100)
 
-      if (result.rows.length === 0) {
+      if (!result.rows || result.rows.length === 0) {
         throw new Error('文件内容为空，请检查文件是否有数据')
       }
 
@@ -91,11 +91,7 @@ export function FileUpload({ onFileParsed, onError, maxSize = 50 }: FileUploadPr
       
       // 延迟回调让用户看到成功状态
       setTimeout(() => {
-        onFileParsed({
-          ...result,
-          fileName: file.name,
-          fileSize: file.size,
-        })
+        onFileParsed(result)
       }, 500)
 
     } catch (err) {

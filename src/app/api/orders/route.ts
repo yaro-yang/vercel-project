@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
     const search = searchParams.get("search") || "";
-    const status = searchParams.get("status") as OrderStatus | null;
+    const status = searchParams.get("status") as OrderStatus | null | string;
 
     const skip = (page - 1) * pageSize;
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 忽略 "ALL" 值，表示全部状态
-    if (status && status !== "ALL") {
+    if (status && status !== "ALL" && status !== "all") {
       where.status = status;
     }
 

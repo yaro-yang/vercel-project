@@ -574,7 +574,7 @@ export function validateRow(row: ParsedData, rowIndex: number): ParseError[] {
   }
 
   // 重量校验（正数）
-  if (row.weight !== undefined && row.weight !== "") {
+  if (row.weight !== undefined && row.weight !== null) {
     const weight = parseFloat(String(row.weight));
     if (isNaN(weight) || weight <= 0) {
       errors.push({
@@ -587,7 +587,7 @@ export function validateRow(row: ParsedData, rowIndex: number): ParseError[] {
   }
 
   // 件数校验（正整数）
-  if (row.quantity !== undefined && row.quantity !== "") {
+  if (row.quantity !== undefined && row.quantity !== null) {
     const quantity = parseInt(String(row.quantity), 10);
     if (isNaN(quantity) || quantity <= 0 || !Number.isInteger(Number(row.quantity))) {
       errors.push({

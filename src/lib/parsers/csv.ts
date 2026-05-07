@@ -52,14 +52,14 @@ export function parseCSV(file: File): Promise<ParseResult> {
               return
             }
             
-            const rows: ParsedRow[] = results.data.map((row: Record<string, string>) => {
-              const parsedRow: ParsedRow = {}
+            const rows: ParsedRow[] = (results.data as Record<string, unknown>[]).map((row, index) => {
+              const parsedRow: ParsedRow = { rowIndex: index + 1, data: {}, errors: [] }
               headers.forEach((header) => {
-                const value = row[header]
-                if (value === undefined || value === null || value.trim() === '') {
-                  parsedRow[header] = null
+                const value = row[header] as string | undefined
+                if (value === undefined || value === null || String(value).trim() === '') {
+                  parsedRow.data![header] = ''
                 } else {
-                  parsedRow[header] = value.trim()
+                  parsedRow.data![header] = String(value).trim()
                 }
               })
               return parsedRow
@@ -71,7 +71,7 @@ export function parseCSV(file: File): Promise<ParseResult> {
               sheetName: 'Sheet1',
             })
           },
-          error: (error) => {
+          error: (error: Error) => {
             if (error.message.includes('CSV')) {
               reject(new Error(`CSV 解析失败: ${error.message}`))
             } else {
