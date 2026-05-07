@@ -45,21 +45,21 @@ export async function POST(request: NextRequest) {
         await prisma.order.create({
           data: {
             orderNo,
-            externalCode: orderData.externalCode,
+            externalCode: orderData.externalNo,
             senderName: orderData.senderName,
             senderPhone: orderData.senderPhone,
             senderAddress: orderData.senderAddress,
             receiverName: orderData.receiverName,
             receiverPhone: orderData.receiverPhone,
             receiverAddress: orderData.receiverAddress,
-            quantity: orderData.quantity,
-            weight: orderData.weight,
-            temperature: orderData.temperature,
+            quantity: orderData.goodsCount,
+            weight: orderData.goodsWeight,
+            temperature: orderData.tempLayer,
             remark: orderData.remark,
             templateId,
             batchId,
             status: "PENDING",
-            rawData: orderData._raw as object,
+            rawData: orderData.rawData as object,
           },
         });
 
