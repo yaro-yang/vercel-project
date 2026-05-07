@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (status) {
+    // 忽略 "ALL" 值，表示全部状态
+    if (status && status !== "ALL") {
       where.status = status;
     }
 

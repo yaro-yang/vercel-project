@@ -51,7 +51,7 @@ export default function OrdersPage() {
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [filters, setFilters] = useState({
     search: "",
-    status: "" as OrderStatus | "",
+    status: "ALL" as OrderStatus | "ALL" | "",
   });
   const [stats, setStats] = useState({ total: 0, pending: 0, processing: 0, completed: 0, todayCount: 0 });
 
@@ -104,7 +104,7 @@ export default function OrdersPage() {
 
   // 状态筛选
   const handleStatusChange = (value: string) => {
-    setFilters((prev) => ({ ...prev, status: value as OrderStatus | "" }));
+    setFilters((prev) => ({ ...prev, status: value as OrderStatus | "ALL" }));
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
