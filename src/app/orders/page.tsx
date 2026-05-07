@@ -180,12 +180,12 @@ export default function OrdersPage() {
                   className="pl-10"
                 />
               </div>
-              <Select value={filters.status} onValueChange={handleStatusChange}>
+              <Select value={filters.status || 'ALL'} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="订单状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">全部状态</SelectItem>
+                  <SelectItem value="ALL">全部状态</SelectItem>
                   <SelectItem value="PENDING">待处理</SelectItem>
                   <SelectItem value="CONFIRMED">已确认</SelectItem>
                   <SelectItem value="PROCESSING">处理中</SelectItem>
