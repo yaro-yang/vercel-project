@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -45,21 +46,21 @@ export async function POST(request: NextRequest) {
         await prisma.order.create({
           data: {
             orderNo,
-            externalCode: orderData.externalNo,
+            externalCode: orderData.externalCode,
             senderName: orderData.senderName,
             senderPhone: orderData.senderPhone,
             senderAddress: orderData.senderAddress,
             receiverName: orderData.receiverName,
             receiverPhone: orderData.receiverPhone,
             receiverAddress: orderData.receiverAddress,
-            quantity: orderData.goodsCount,
-            weight: orderData.goodsWeight,
-            temperature: orderData.tempLayer,
+            quantity: orderData.quantity,
+            weight: orderData.weight ? new Prisma.Decimal(orderData.weight) : null,
+            temperature: orderData.temperature,
             remark: orderData.remark,
             templateId,
             batchId,
             status: "PENDING",
-            rawData: orderData.rawData as object,
+            rawData: orderData._raw as object,
           },
         });
 

@@ -263,19 +263,14 @@ export default function ImportPage() {
     });
   }, []);
 
-  // 验证单行
+  // 验证单行（重量、件数、温层为选填）
   const validateRow = (row: ParsedData, rowIndex: number): ParseError[] => {
     const errors: ParseError[] = [];
 
     const requiredFields = [
       { key: "senderName", label: "寄件人姓名" },
-      { key: "senderPhone", label: "寄件人电话" },
       { key: "receiverName", label: "收件人姓名" },
-      { key: "receiverPhone", label: "收件人电话" },
-      { key: "receiverAddress", label: "收件地址" },
-      { key: "weight", label: "重量" },
-      { key: "quantity", label: "件数" },
-      { key: "temperature", label: "温层" },
+      { key: "receiverAddress", label: "收件人地址" },
     ];
 
     for (const field of requiredFields) {
