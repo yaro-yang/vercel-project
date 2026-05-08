@@ -160,6 +160,13 @@ export default function ImportPage() {
       setTemplateMatchInfo(matchInfo);
       setTempMapping(Object.keys(autoMapping).length > 0 ? autoMapping : {});
 
+      // 重置 editableData 和相关状态
+      setEditableData([]);
+      setNewRows(new Set());
+      setEditingCell(null);
+
+      const newMapping = Object.keys(autoMapping).length > 0 ? autoMapping : {};
+
       setState((prev) => ({
         ...prev,
         headers: result.headers,
@@ -167,11 +174,23 @@ export default function ImportPage() {
         headerRow: result.headerRow,
         sheetNames: result.sheetNames,
         selectedSheet: 0,
-        mapping: Object.keys(autoMapping).length > 0 ? autoMapping : {},
+        mapping: newMapping,
+        data: [],
+        errors: [],
         isProcessing: false,
         progress: 100,
         step: Object.keys(autoMapping).length > 0 ? "preview" : "mapping",
       }));
+
+      // 如果有自动映射，立即应用映射并转换数据到预览
+      if (Object.keys(newMapping).length > 0) {
+        const data = applyFieldMapping(result.rawData, result.headers, newMapping, (p) => {
+          setState((prev) => ({ ...prev, progress: p.percent }));
+        });
+        const { validData, allErrors } = validateAllData(data);
+        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
+        setEditableData([...data]);
+      }
 
     } catch (error) {
       console.error("Parse error:", error);
@@ -193,8 +212,13 @@ export default function ImportPage() {
       });
 
       const autoMapping = autoMatchFields(result.headers);
+      const newMapping = Object.keys(autoMapping).length > 0 ? autoMapping : {};
 
-      setTempMapping(Object.keys(autoMapping).length > 0 ? autoMapping : {});
+      setTempMapping(newMapping);
+      // 重置 editableData 和相关状态
+      setEditableData([]);
+      setNewRows(new Set());
+      setEditingCell(null);
 
       setState((prev) => ({
         ...prev,
@@ -202,10 +226,22 @@ export default function ImportPage() {
         rawData: result.rawData,
         headerRow: result.headerRow,
         selectedSheet: sheetIndex,
-        mapping: Object.keys(autoMapping).length > 0 ? autoMapping : {},
-        step: Object.keys(autoMapping).length > 0 ? "preview" : "mapping",
+        mapping: newMapping,
+        data: [],
+        errors: [],
+        step: Object.keys(newMapping).length > 0 ? "preview" : "mapping",
         isProcessing: false,
       }));
+
+      // 如果有自动映射，立即应用映射并转换数据到预览
+      if (Object.keys(newMapping).length > 0) {
+        const data = applyFieldMapping(result.rawData, result.headers, newMapping, (p) => {
+          setState((prev) => ({ ...prev, progress: p.percent }));
+        });
+        const { validData, allErrors } = validateAllData(data);
+        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
+        setEditableData([...data]);
+      }
     } catch (error) {
       console.error("Sheet change error:", error);
       setState((prev) => ({ ...prev, isProcessing: false }));
@@ -477,7 +513,17 @@ export default function ImportPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setState((prev) => ({ ...prev, file: null, parseResult: null, parseError: null, editableData: [], mappings: {}, step: "upload" as const }))}
+                  onClick={() => {
+                    setState({ ...initialState, templates: state.templates });
+                    setEditableData([]);
+                    setNewRows(new Set());
+                    setEditingCell(null);
+                    setTempMapping({});
+                    setTemplateMatchInfo(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
                 >
                   重新上传
                 </Button>
@@ -1006,7 +1052,17 @@ export default function ImportPage() {
                 <Button variant="outline" onClick={() => window.location.href = "/orders"}>
                   查看订单列表
                 </Button>
-                <Button onClick={() => setState((prev) => ({ ...prev, file: null, parseResult: null, parseError: null, editableData: [], mappings: {}, step: "upload" as const }))}>
+                <Button onClick={() => {
+                  setState({ ...initialState, templates: state.templates });
+                  setEditableData([]);
+                  setNewRows(new Set());
+                  setEditingCell(null);
+                  setTempMapping({});
+                  setTemplateMatchInfo(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}>
                   继续导入
                 </Button>
               </div>
