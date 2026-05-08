@@ -132,6 +132,13 @@ export default function ImportPage() {
         onProgress: (p) => setState((prev) => ({ ...prev, progress: p.percent }))
       });
 
+      console.log("[Upload] Parsed result:", {
+        headers: result.headers,
+        rawDataLength: result.rawData.length,
+        rawDataSample: result.rawData.slice(0, 2),
+        headerRow: result.headerRow,
+      });
+
       if (result.errors.length > 0 && result.rawData.length === 0) {
         alert(result.errors.map((e) => e.message).join("\n"));
         setState((prev) => ({ ...prev, isProcessing: false, progress: 0 }));
@@ -140,6 +147,7 @@ export default function ImportPage() {
 
       // 自动匹配字段
       const autoMapping = autoMatchFields(result.headers);
+      console.log("[Upload] Auto mapping:", autoMapping);
 
       // 尝试从已有模板中找最佳匹配
       let matchInfo: { name: string; similarity: number } | null = null;
@@ -164,7 +172,27 @@ export default function ImportPage() {
       const hasAutoMapping = Object.keys(autoMapping).length > 0;
       setTempMapping(hasAutoMapping ? autoMapping : {});
 
-      // 先设置基本状态
+      // 如果有自动映射，先转换数据
+      let transformedData: ParsedData[] = [];
+      let validData: ParsedData[] = [];
+      let allErrors: ParseError[] = [];
+      
+      if (hasAutoMapping) {
+        transformedData = applyFieldMapping(result.rawData, result.headers, autoMapping);
+        console.log("[Upload] Transformed data:", {
+          length: transformedData.length,
+          sample: transformedData.slice(0, 2),
+        });
+        const validationResult = validateAllData(transformedData);
+        validData = validationResult.validData;
+        allErrors = validationResult.allErrors;
+        console.log("[Upload] Validation result:", {
+          validCount: validData.length,
+          errorCount: allErrors.length,
+        });
+      }
+
+      // 设置状态
       setState((prev) => ({
         ...prev,
         headers: result.headers,
@@ -173,22 +201,18 @@ export default function ImportPage() {
         sheetNames: result.sheetNames,
         selectedSheet: 0,
         mapping: hasAutoMapping ? autoMapping : {},
-        data: [],
-        errors: [],
+        data: validData,
+        errors: allErrors,
         isProcessing: false,
         progress: 100,
         step: hasAutoMapping ? "preview" : "mapping",
       }));
 
-      // 如果有自动映射，立即转换数据
+      // 设置 editableData
       if (hasAutoMapping) {
-        const data = applyFieldMapping(result.rawData, result.headers, autoMapping);
-        const { validData, allErrors } = validateAllData(data);
-        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
-        setEditableData(data);
+        setEditableData(transformedData);
         setNewRows(new Set());
       } else {
-        // 重置 editableData
         setEditableData([]);
         setNewRows(new Set());
       }
