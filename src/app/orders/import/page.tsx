@@ -103,7 +103,8 @@ export default function ImportPage() {
   // 当进入 preview 步骤且有 rawData 和 mapping 时，自动应用映射
   useEffect(() => {
     const { step, rawData, headers, mapping } = state;
-    if (step === "preview" && rawData.length > 0 && Object.keys(mapping).length > 0 && !mappingAppliedRef.current) {
+    const mappingKeysCount = Object.keys(mapping).length;
+    if (step === "preview" && rawData.length > 0 && mappingKeysCount > 0 && !mappingAppliedRef.current) {
       mappingAppliedRef.current = true;
       const data = applyFieldMapping(rawData, headers, mapping, (p) => {
         setState((prev) => ({ ...prev, progress: p.percent }));
@@ -112,7 +113,7 @@ export default function ImportPage() {
       setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
       setEditableData([...data]);
     }
-  }, [state.step, state.rawData.length, state.headers.length, Object.keys(state.mapping).length]);
+  }, [state.step, state.rawData.length, state.headers.length, state.mapping]);
 
   // 当离开 preview 步骤时，重置映射应用标记
   useEffect(() => {
