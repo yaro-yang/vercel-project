@@ -99,6 +99,18 @@ export default function ImportPage() {
     loadTemplates();
   }, []);
 
+  // 当进入 preview 步骤且有 rawData 和 mapping 时，自动应用映射
+  useEffect(() => {
+    if (state.step === "preview" && state.rawData.length > 0 && Object.keys(state.mapping).length > 0 && editableData.length === 0) {
+      const data = applyFieldMapping(state.rawData, state.headers, state.mapping, (p) => {
+        setState((prev) => ({ ...prev, progress: p.percent }));
+      });
+      const { validData, allErrors } = validateAllData(data);
+      setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
+      setEditableData([...data]);
+    }
+  }, [state.step, state.rawData, state.headers, state.mapping, editableData.length]);
+
   const loadTemplates = async () => {
     try {
       const res = await fetch("/api/templates");
@@ -158,14 +170,14 @@ export default function ImportPage() {
       }
 
       setTemplateMatchInfo(matchInfo);
-      setTempMapping(Object.keys(autoMapping).length > 0 ? autoMapping : {});
 
       // 重置 editableData 和相关状态
       setEditableData([]);
       setNewRows(new Set());
       setEditingCell(null);
 
-      const newMapping = Object.keys(autoMapping).length > 0 ? autoMapping : {};
+      const hasAutoMapping = Object.keys(autoMapping).length > 0;
+      setTempMapping(hasAutoMapping ? autoMapping : {});
 
       setState((prev) => ({
         ...prev,
@@ -174,23 +186,13 @@ export default function ImportPage() {
         headerRow: result.headerRow,
         sheetNames: result.sheetNames,
         selectedSheet: 0,
-        mapping: newMapping,
+        mapping: hasAutoMapping ? autoMapping : {},
         data: [],
         errors: [],
         isProcessing: false,
         progress: 100,
-        step: Object.keys(autoMapping).length > 0 ? "preview" : "mapping",
+        step: hasAutoMapping ? "preview" : "mapping",
       }));
-
-      // 如果有自动映射，立即应用映射并转换数据到预览
-      if (Object.keys(newMapping).length > 0) {
-        const data = applyFieldMapping(result.rawData, result.headers, newMapping, (p) => {
-          setState((prev) => ({ ...prev, progress: p.percent }));
-        });
-        const { validData, allErrors } = validateAllData(data);
-        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
-        setEditableData([...data]);
-      }
 
     } catch (error) {
       console.error("Parse error:", error);
@@ -212,9 +214,9 @@ export default function ImportPage() {
       });
 
       const autoMapping = autoMatchFields(result.headers);
-      const newMapping = Object.keys(autoMapping).length > 0 ? autoMapping : {};
+      const hasAutoMapping = Object.keys(autoMapping).length > 0;
 
-      setTempMapping(newMapping);
+      setTempMapping(hasAutoMapping ? autoMapping : {});
       // 重置 editableData 和相关状态
       setEditableData([]);
       setNewRows(new Set());
@@ -226,22 +228,12 @@ export default function ImportPage() {
         rawData: result.rawData,
         headerRow: result.headerRow,
         selectedSheet: sheetIndex,
-        mapping: newMapping,
+        mapping: hasAutoMapping ? autoMapping : {},
         data: [],
         errors: [],
-        step: Object.keys(newMapping).length > 0 ? "preview" : "mapping",
+        step: hasAutoMapping ? "preview" : "mapping",
         isProcessing: false,
       }));
-
-      // 如果有自动映射，立即应用映射并转换数据到预览
-      if (Object.keys(newMapping).length > 0) {
-        const data = applyFieldMapping(result.rawData, result.headers, newMapping, (p) => {
-          setState((prev) => ({ ...prev, progress: p.percent }));
-        });
-        const { validData, allErrors } = validateAllData(data);
-        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
-        setEditableData([...data]);
-      }
     } catch (error) {
       console.error("Sheet change error:", error);
       setState((prev) => ({ ...prev, isProcessing: false }));
