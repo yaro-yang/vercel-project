@@ -93,6 +93,7 @@ export default function ImportPage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const mappingAppliedRef = useRef(false);
 
   // 加载模板列表
   useEffect(() => {
@@ -101,7 +102,8 @@ export default function ImportPage() {
 
   // 当进入 preview 步骤且有 rawData 和 mapping 时，自动应用映射
   useEffect(() => {
-    if (state.step === "preview" && state.rawData.length > 0 && Object.keys(state.mapping).length > 0 && editableData.length === 0) {
+    if (state.step === "preview" && state.rawData.length > 0 && Object.keys(state.mapping).length > 0 && !mappingAppliedRef.current) {
+      mappingAppliedRef.current = true;
       const data = applyFieldMapping(state.rawData, state.headers, state.mapping, (p) => {
         setState((prev) => ({ ...prev, progress: p.percent }));
       });
@@ -109,7 +111,14 @@ export default function ImportPage() {
       setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
       setEditableData([...data]);
     }
-  }, [state.step, state.rawData, state.headers, state.mapping, editableData.length]);
+  }, [state.step, state.rawData, state.headers, state.mapping]);
+
+  // 当离开 preview 步骤时，重置映射应用标记
+  useEffect(() => {
+    if (state.step !== "preview") {
+      mappingAppliedRef.current = false;
+    }
+  }, [state.step]);
 
   const loadTemplates = async () => {
     try {
@@ -175,6 +184,7 @@ export default function ImportPage() {
       setEditableData([]);
       setNewRows(new Set());
       setEditingCell(null);
+      mappingAppliedRef.current = false;
 
       const hasAutoMapping = Object.keys(autoMapping).length > 0;
       setTempMapping(hasAutoMapping ? autoMapping : {});
@@ -221,6 +231,7 @@ export default function ImportPage() {
       setEditableData([]);
       setNewRows(new Set());
       setEditingCell(null);
+      mappingAppliedRef.current = false;
 
       setState((prev) => ({
         ...prev,
