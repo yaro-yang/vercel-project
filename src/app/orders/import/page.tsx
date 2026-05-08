@@ -93,34 +93,13 @@ export default function ImportPage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const mappingAppliedRef = useRef(false);
 
   // 加载模板列表
   useEffect(() => {
     loadTemplates();
   }, []);
 
-  // 当进入 preview 步骤且有 rawData 和 mapping 时，自动应用映射
-  useEffect(() => {
-    const { step, rawData, headers, mapping } = state;
-    const mappingKeysCount = Object.keys(mapping).length;
-    if (step === "preview" && rawData.length > 0 && mappingKeysCount > 0 && !mappingAppliedRef.current) {
-      mappingAppliedRef.current = true;
-      const data = applyFieldMapping(rawData, headers, mapping, (p) => {
-        setState((prev) => ({ ...prev, progress: p.percent }));
-      });
-      const { validData, allErrors } = validateAllData(data);
-      setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
-      setEditableData([...data]);
-    }
-  }, [state.step, state.rawData.length, state.headers.length, state.mapping]);
 
-  // 当离开 preview 步骤时，重置映射应用标记
-  useEffect(() => {
-    if (state.step !== "preview") {
-      mappingAppliedRef.current = false;
-    }
-  }, [state.step]);
 
   const loadTemplates = async () => {
     try {
@@ -182,15 +161,10 @@ export default function ImportPage() {
 
       setTemplateMatchInfo(matchInfo);
 
-      // 重置 editableData 和相关状态
-      setEditableData([]);
-      setNewRows(new Set());
-      setEditingCell(null);
-      mappingAppliedRef.current = false;
-
       const hasAutoMapping = Object.keys(autoMapping).length > 0;
       setTempMapping(hasAutoMapping ? autoMapping : {});
 
+      // 先设置基本状态
       setState((prev) => ({
         ...prev,
         headers: result.headers,
@@ -205,6 +179,20 @@ export default function ImportPage() {
         progress: 100,
         step: hasAutoMapping ? "preview" : "mapping",
       }));
+
+      // 如果有自动映射，立即转换数据
+      if (hasAutoMapping) {
+        const data = applyFieldMapping(result.rawData, result.headers, autoMapping);
+        const { validData, allErrors } = validateAllData(data);
+        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
+        setEditableData(data);
+        setNewRows(new Set());
+      } else {
+        // 重置 editableData
+        setEditableData([]);
+        setNewRows(new Set());
+      }
+      setEditingCell(null);
 
     } catch (error) {
       console.error("Parse error:", error);
@@ -229,11 +217,6 @@ export default function ImportPage() {
       const hasAutoMapping = Object.keys(autoMapping).length > 0;
 
       setTempMapping(hasAutoMapping ? autoMapping : {});
-      // 重置 editableData 和相关状态
-      setEditableData([]);
-      setNewRows(new Set());
-      setEditingCell(null);
-      mappingAppliedRef.current = false;
 
       setState((prev) => ({
         ...prev,
@@ -247,6 +230,19 @@ export default function ImportPage() {
         step: hasAutoMapping ? "preview" : "mapping",
         isProcessing: false,
       }));
+
+      // 如果有自动映射，立即转换数据
+      if (hasAutoMapping) {
+        const data = applyFieldMapping(result.rawData, result.headers, autoMapping);
+        const { validData, allErrors } = validateAllData(data);
+        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
+        setEditableData(data);
+        setNewRows(new Set());
+      } else {
+        setEditableData([]);
+        setNewRows(new Set());
+      }
+      setEditingCell(null);
     } catch (error) {
       console.error("Sheet change error:", error);
       setState((prev) => ({ ...prev, isProcessing: false }));
