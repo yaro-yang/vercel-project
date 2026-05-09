@@ -181,6 +181,7 @@ export default function ImportPage() {
         transformedData = applyFieldMapping(result.rawData, result.headers, autoMapping);
         console.log("[Upload] Transformed data:", {
           length: transformedData.length,
+          autoMapping,
           sample: transformedData.slice(0, 2),
         });
         
@@ -189,25 +190,32 @@ export default function ImportPage() {
           .map((row) => row.externalCode)
           .filter((code) => code && String(code).trim());
         
+        console.log("[Upload] External codes to check:", externalCodes);
+        
         let dbDuplicates: Array<{ externalCode: string; orderNo: string; status: string }> = [];
         if (externalCodes.length > 0) {
           try {
+            console.log("[Upload] Calling check-duplicates API...");
             const dupRes = await fetch("/api/orders/check-duplicates", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ externalCodes }),
             });
             const dupData = await dupRes.json();
+            console.log("[Upload] Check duplicates result:", dupData);
             if (dupData.duplicates) {
               dbDuplicates = dupData.duplicates;
             }
           } catch (e) {
-            console.error("Check duplicates error:", e);
+            console.error("[Upload] Check duplicates error:", e);
           }
+        } else {
+          console.log("[Upload] No external codes found to check");
         }
         
         // 为重复的外部编码添加错误
         if (dbDuplicates.length > 0) {
+          console.log("[Upload] Found duplicates:", dbDuplicates);
           const dupMap = new Map(dbDuplicates.map((d) => [d.externalCode.toLowerCase(), d]));
           transformedData.forEach((row, idx) => {
             if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
