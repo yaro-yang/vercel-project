@@ -50,11 +50,13 @@ export async function POST(request: NextRequest) {
       });
 
       allDuplicates.push(
-        ...existingOrders.map((order) => ({
-          externalCode: order.externalCode,
-          orderNo: order.orderNo,
-          status: order.status,
-        }))
+        ...existingOrders
+          .filter((order) => order.externalCode !== null)
+          .map((order) => ({
+            externalCode: order.externalCode!,
+            orderNo: order.orderNo,
+            status: order.status,
+          }))
       );
     }
 
