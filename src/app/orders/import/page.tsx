@@ -183,12 +183,53 @@ export default function ImportPage() {
           length: transformedData.length,
           sample: transformedData.slice(0, 2),
         });
+        
+        // 检查数据库重复
+        const externalCodes = transformedData
+          .map((row) => row.externalCode)
+          .filter((code) => code && String(code).trim());
+        
+        let dbDuplicates: Array<{ externalCode: string; orderNo: string; status: string }> = [];
+        if (externalCodes.length > 0) {
+          try {
+            const dupRes = await fetch("/api/orders/check-duplicates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ externalCodes }),
+            });
+            const dupData = await dupRes.json();
+            if (dupData.duplicates) {
+              dbDuplicates = dupData.duplicates;
+            }
+          } catch (e) {
+            console.error("Check duplicates error:", e);
+          }
+        }
+        
+        // 为重复的外部编码添加错误
+        if (dbDuplicates.length > 0) {
+          const dupMap = new Map(dbDuplicates.map((d) => [d.externalCode.toLowerCase(), d]));
+          transformedData.forEach((row, idx) => {
+            if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
+              const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
+              row._errors = row._errors || [];
+              row._errors.push({
+                type: "DUPLICATE_ERROR",
+                row: row._rowIndex,
+                field: "externalCode",
+                message: `外部编码已存在（运单号: ${dup.orderNo}，状态: ${dup.status}）`,
+              });
+            }
+          });
+        }
+        
         const validationResult = validateAllData(transformedData);
         validData = validationResult.validData;
         allErrors = validationResult.allErrors;
         console.log("[Upload] Validation result:", {
           validCount: validData.length,
           errorCount: allErrors.length,
+          dbDuplicates: dbDuplicates.length,
         });
       }
 
@@ -242,6 +283,58 @@ export default function ImportPage() {
 
       setTempMapping(hasAutoMapping ? autoMapping : {});
 
+      // 如果有自动映射，先转换数据
+      let transformedData: ParsedData[] = [];
+      let validData: ParsedData[] = [];
+      let allErrors: ParseError[] = [];
+      
+      if (hasAutoMapping) {
+        transformedData = applyFieldMapping(result.rawData, result.headers, autoMapping);
+        
+        // 检查数据库重复
+        const externalCodes = transformedData
+          .map((row) => row.externalCode)
+          .filter((code) => code && String(code).trim());
+        
+        let dbDuplicates: Array<{ externalCode: string; orderNo: string; status: string }> = [];
+        if (externalCodes.length > 0) {
+          try {
+            const dupRes = await fetch("/api/orders/check-duplicates", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ externalCodes }),
+            });
+            const dupData = await dupRes.json();
+            if (dupData.duplicates) {
+              dbDuplicates = dupData.duplicates;
+            }
+          } catch (e) {
+            console.error("Check duplicates error:", e);
+          }
+        }
+        
+        // 为重复的外部编码添加错误
+        if (dbDuplicates.length > 0) {
+          const dupMap = new Map(dbDuplicates.map((d) => [d.externalCode.toLowerCase(), d]));
+          transformedData.forEach((row) => {
+            if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
+              const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
+              row._errors = row._errors || [];
+              row._errors.push({
+                type: "DUPLICATE_ERROR",
+                row: row._rowIndex,
+                field: "externalCode",
+                message: `外部编码已存在（运单号: ${dup.orderNo}，状态: ${dup.status}）`,
+              });
+            }
+          });
+        }
+        
+        const validationResult = validateAllData(transformedData);
+        validData = validationResult.validData;
+        allErrors = validationResult.allErrors;
+      }
+
       setState((prev) => ({
         ...prev,
         headers: result.headers,
@@ -249,18 +342,15 @@ export default function ImportPage() {
         headerRow: result.headerRow,
         selectedSheet: sheetIndex,
         mapping: hasAutoMapping ? autoMapping : {},
-        data: [],
-        errors: [],
+        data: validData,
+        errors: allErrors,
         step: hasAutoMapping ? "preview" : "mapping",
         isProcessing: false,
       }));
 
-      // 如果有自动映射，立即转换数据
+      // 如果有自动映射，设置转换后的数据
       if (hasAutoMapping) {
-        const data = applyFieldMapping(result.rawData, result.headers, autoMapping);
-        const { validData, allErrors } = validateAllData(data);
-        setState((prev) => ({ ...prev, data: validData, errors: allErrors }));
-        setEditableData(data);
+        setEditableData(transformedData);
         setNewRows(new Set());
       } else {
         setEditableData([]);
@@ -281,11 +371,50 @@ export default function ImportPage() {
   }, [handleFileUpload]);
 
   // 应用映射并转换数据
-  const applyMapping = useCallback(() => {
+  const applyMapping = useCallback(async () => {
     const mappingToUse = tempMapping;
     const data = applyFieldMapping(state.rawData, state.headers, mappingToUse, (p) => {
       setState((prev) => ({ ...prev, progress: p.percent }));
     });
+
+    // 检查数据库重复
+    const externalCodes = data
+      .map((row) => row.externalCode)
+      .filter((code) => code && String(code).trim());
+    
+    let dbDuplicates: Array<{ externalCode: string; orderNo: string; status: string }> = [];
+    if (externalCodes.length > 0) {
+      try {
+        const dupRes = await fetch("/api/orders/check-duplicates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ externalCodes }),
+        });
+        const dupData = await dupRes.json();
+        if (dupData.duplicates) {
+          dbDuplicates = dupData.duplicates;
+        }
+      } catch (e) {
+        console.error("Check duplicates error:", e);
+      }
+    }
+    
+    // 为重复的外部编码添加错误
+    if (dbDuplicates.length > 0) {
+      const dupMap = new Map(dbDuplicates.map((d) => [d.externalCode.toLowerCase(), d]));
+      data.forEach((row) => {
+        if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
+          const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
+          row._errors = row._errors || [];
+          row._errors.push({
+            type: "DUPLICATE_ERROR",
+            row: row._rowIndex,
+            field: "externalCode",
+            message: `外部编码已存在（运单号: ${dup.orderNo}，状态: ${dup.status}）`,
+          });
+        }
+      });
+    }
 
     const { validData, allErrors } = validateAllData(data);
 
