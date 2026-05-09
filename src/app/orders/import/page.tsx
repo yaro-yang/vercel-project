@@ -211,13 +211,15 @@ export default function ImportPage() {
             // 为重复的外部编码添加错误（不会覆盖原有错误）
             if (dupData.duplicates && dupData.duplicates.length > 0) {
               console.log("[Upload] Found duplicates:", dupData.duplicates);
-              const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d]));
+              const dupMap = new Map<string, { externalCode: string; orderNo: string; status: string }>(
+                dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d])
+              );
               transformedData.forEach((row) => {
                 if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
                   const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
                   // 添加数据库重复错误
-                  const dbError = {
-                    type: "DUPLICATE_ERROR" as const,
+                  const dbError: ParseError = {
+                    type: "DUPLICATE_ERROR",
                     row: row._rowIndex,
                     field: "externalCode",
                     message: `外部编码已存在（运单号: ${dup.orderNo}，状态: ${dup.status}）`,
@@ -319,12 +321,14 @@ export default function ImportPage() {
             
             // 为重复的外部编码添加错误（不会覆盖原有错误）
             if (dupData.duplicates && dupData.duplicates.length > 0) {
-              const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d]));
+              const dupMap = new Map<string, { externalCode: string; orderNo: string; status: string }>(
+                dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d])
+              );
               transformedData.forEach((row) => {
                 if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
                   const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
-                  const dbError = {
-                    type: "DUPLICATE_ERROR" as const,
+                  const dbError: ParseError = {
+                    type: "DUPLICATE_ERROR",
                     row: row._rowIndex,
                     field: "externalCode",
                     message: `外部编码已存在（运单号: ${dup.orderNo}，状态: ${dup.status}）`,
@@ -403,12 +407,14 @@ export default function ImportPage() {
         
         // 为重复的外部编码添加错误（不会覆盖原有错误）
         if (dupData.duplicates && dupData.duplicates.length > 0) {
-          const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d]));
+          const dupMap = new Map<string, { externalCode: string; orderNo: string; status: string }>(
+            dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d])
+          );
           data.forEach((row) => {
             if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
               const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
-              const dbError = {
-                type: "DUPLICATE_ERROR" as const,
+              const dbError: ParseError = {
+                type: "DUPLICATE_ERROR",
                 row: row._rowIndex,
                 field: "externalCode",
                 message: `外部编码已存在（运单号: ${dup.orderNo}，状态: ${dup.status}）`,
