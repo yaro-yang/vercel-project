@@ -211,7 +211,7 @@ export default function ImportPage() {
             // 为重复的外部编码添加错误（不会覆盖原有错误）
             if (dupData.duplicates && dupData.duplicates.length > 0) {
               console.log("[Upload] Found duplicates:", dupData.duplicates);
-              const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string }) => [d.externalCode.toLowerCase(), d]));
+              const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d]));
               transformedData.forEach((row) => {
                 if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
                   const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
@@ -319,7 +319,7 @@ export default function ImportPage() {
             
             // 为重复的外部编码添加错误（不会覆盖原有错误）
             if (dupData.duplicates && dupData.duplicates.length > 0) {
-              const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string }) => [d.externalCode.toLowerCase(), d]));
+              const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d]));
               transformedData.forEach((row) => {
                 if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
                   const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
@@ -403,7 +403,7 @@ export default function ImportPage() {
         
         // 为重复的外部编码添加错误（不会覆盖原有错误）
         if (dupData.duplicates && dupData.duplicates.length > 0) {
-          const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string }) => [d.externalCode.toLowerCase(), d]));
+          const dupMap = new Map(dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d]));
           data.forEach((row) => {
             if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
               const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
