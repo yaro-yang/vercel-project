@@ -111,6 +111,84 @@ export default function ImportPage() {
     }
   };
 
+  // 分批处理工具函数 - 让出主线程
+  const yieldToMain = (): Promise<void> => {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  };
+
+  // 分批处理大数据量转换
+  const batchTransform = async (
+    rawData: unknown[][],
+    headers: string[],
+    mapping: FieldMapping,
+    onProgress: (percent: number) => void
+  ): Promise<ParsedData[]> => {
+    const result: ParsedData[] = [];
+    const total = rawData.length;
+    const batchSize = 1000;
+    const reverseMapping: Record<string, string> = {};
+
+    for (const [fieldKey, headerName] of Object.entries(mapping)) {
+      reverseMapping[headerName] = fieldKey;
+    }
+
+    for (let i = 0; i < rawData.length; i += batchSize) {
+      const batch = rawData.slice(i, i + batchSize);
+
+      for (let j = 0; j < batch.length; j++) {
+        const row = batch[j];
+        const rowData: ParsedData = {
+          _rowIndex: i + j + 1,
+          _errors: [],
+          _raw: row,
+        };
+
+        for (let colIndex = 0; colIndex < headers.length; colIndex++) {
+          const header = headers[colIndex];
+          const fieldKey = reverseMapping[header];
+          if (fieldKey) {
+            rowData[fieldKey as keyof ParsedData] = row[colIndex] as never;
+          }
+        }
+
+        result.push(rowData);
+      }
+
+      onProgress(Math.round(((i + batch.length) / total) * 80));
+      await yieldToMain();
+    }
+
+    return result;
+  };
+
+  // 分批验证
+  const batchValidate = async (
+    data: ParsedData[],
+    onProgress: (percent: number) => void
+  ): Promise<{ validData: ParsedData[]; allErrors: ParseError[] }> => {
+    const validData: ParsedData[] = [];
+    const allErrors: ParseError[] = [];
+    const batchSize = 1000;
+
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize);
+
+      for (const row of batch) {
+        const errors = validateRow(row, row._rowIndex);
+        row._errors = errors;
+        allErrors.push(...errors);
+        if (errors.length === 0) {
+          validData.push(row);
+        }
+      }
+
+      onProgress(80 + Math.round(((i + batch.length) / data.length) * 20));
+      await yieldToMain();
+    }
+
+    return { validData, allErrors };
+  };
+
   // 文件上传处理
   const handleFileUpload = useCallback(async (file: File) => {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
@@ -118,9 +196,9 @@ export default function ImportPage() {
       return;
     }
 
-    setState((prev) => ({ 
-      ...prev, 
-      isProcessing: true, 
+    setState((prev) => ({
+      ...prev,
+      isProcessing: true,
       progress: 0,
       file,
       step: "upload"
@@ -129,7 +207,7 @@ export default function ImportPage() {
     try {
       const result = await parseExcel(file, {
         sheetIndex: 0,
-        onProgress: (p) => setState((prev) => ({ ...prev, progress: p.percent }))
+        onProgress: (p) => setState((prev) => ({ ...prev, progress: p.percent * 0.2 }))
       });
 
       console.log("[Upload] Parsed result:", {
@@ -172,34 +250,46 @@ export default function ImportPage() {
       const hasAutoMapping = Object.keys(autoMapping).length > 0;
       setTempMapping(hasAutoMapping ? autoMapping : {});
 
-      // 如果有自动映射，先转换数据
       let transformedData: ParsedData[] = [];
       let validData: ParsedData[] = [];
       let allErrors: ParseError[] = [];
-      
+
       if (hasAutoMapping) {
-        transformedData = applyFieldMapping(result.rawData, result.headers, autoMapping);
+        // 更新进度提示
+        setState((prev) => ({ ...prev, progress: 20 }));
+
+        // 分批转换数据
+        transformedData = await batchTransform(
+          result.rawData,
+          result.headers,
+          autoMapping,
+          (percent) => setState((prev) => ({ ...prev, progress: 20 + percent * 0.3 }))
+        );
+
         console.log("[Upload] Transformed data:", {
           length: transformedData.length,
-          autoMapping,
-          sample: transformedData.slice(0, 2),
         });
-        
-        // 先进行基础验证
-        const validationResult = validateAllData(transformedData);
+
+        // 分批验证
+        const validationResult = await batchValidate(
+          transformedData,
+          (percent) => setState((prev) => ({ ...prev, progress: 50 + percent * 0.2 }))
+        );
         validData = validationResult.validData;
         allErrors = [...validationResult.allErrors];
-        
+
         // 检查数据库重复
         const externalCodes = transformedData
           .map((row) => row.externalCode)
           .filter((code) => code && String(code).trim());
-        
-        console.log("[Upload] External codes to check:", externalCodes);
-        
+
+        console.log("[Upload] External codes to check:", externalCodes.length);
+
         if (externalCodes.length > 0) {
           try {
+            setState((prev) => ({ ...prev, progress: 70 }));
             console.log("[Upload] Calling check-duplicates API...");
+
             const dupRes = await fetch("/api/orders/check-duplicates", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -207,17 +297,16 @@ export default function ImportPage() {
             });
             const dupData = await dupRes.json();
             console.log("[Upload] Check duplicates result:", dupData);
-            
-            // 为重复的外部编码添加错误（不会覆盖原有错误）
+
             if (dupData.duplicates && dupData.duplicates.length > 0) {
-              console.log("[Upload] Found duplicates:", dupData.duplicates);
+              console.log("[Upload] Found duplicates:", dupData.duplicates.length);
               const dupMap = new Map<string, { externalCode: string; orderNo: string; status: string }>(
                 dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d])
               );
-              transformedData.forEach((row) => {
+
+              for (const row of transformedData) {
                 if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
                   const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
-                  // 添加数据库重复错误
                   const dbError: ParseError = {
                     type: "DUPLICATE_ERROR",
                     row: row._rowIndex,
@@ -226,16 +315,15 @@ export default function ImportPage() {
                   };
                   row._errors = [...row._errors, dbError];
                   allErrors.push(dbError);
-                  // 从有效数据中移除
                   validData = validData.filter((d) => d !== row);
                 }
-              });
+              }
             }
           } catch (e) {
             console.error("[Upload] Check duplicates error:", e);
           }
         }
-        
+
         console.log("[Upload] Validation result:", {
           validCount: validData.length,
           errorCount: allErrors.length,
@@ -258,7 +346,6 @@ export default function ImportPage() {
         step: hasAutoMapping ? "preview" : "mapping",
       }));
 
-      // 设置 editableData
       if (hasAutoMapping) {
         setEditableData(transformedData);
         setNewRows(new Set());
@@ -284,7 +371,7 @@ export default function ImportPage() {
     try {
       const result = await parseExcel(state.file, {
         sheetIndex,
-        onProgress: (p) => setState((prev) => ({ ...prev, progress: p.percent }))
+        onProgress: (p) => setState((prev) => ({ ...prev, progress: p.percent * 0.2 }))
       });
 
       const autoMapping = autoMatchFields(result.headers);
@@ -292,39 +379,47 @@ export default function ImportPage() {
 
       setTempMapping(hasAutoMapping ? autoMapping : {});
 
-      // 如果有自动映射，先转换数据
       let transformedData: ParsedData[] = [];
       let validData: ParsedData[] = [];
       let allErrors: ParseError[] = [];
-      
+
       if (hasAutoMapping) {
-        transformedData = applyFieldMapping(result.rawData, result.headers, autoMapping);
-        
-        // 先进行基础验证
-        const validationResult = validateAllData(transformedData);
+        // 分批转换数据
+        transformedData = await batchTransform(
+          result.rawData,
+          result.headers,
+          autoMapping,
+          (percent) => setState((prev) => ({ ...prev, progress: 20 + percent * 0.3 }))
+        );
+
+        // 分批验证
+        const validationResult = await batchValidate(
+          transformedData,
+          (percent) => setState((prev) => ({ ...prev, progress: 50 + percent * 0.2 }))
+        );
         validData = validationResult.validData;
         allErrors = [...validationResult.allErrors];
-        
+
         // 检查数据库重复
         const externalCodes = transformedData
           .map((row) => row.externalCode)
           .filter((code) => code && String(code).trim());
-        
+
         if (externalCodes.length > 0) {
           try {
+            setState((prev) => ({ ...prev, progress: 70 }));
             const dupRes = await fetch("/api/orders/check-duplicates", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ externalCodes }),
             });
             const dupData = await dupRes.json();
-            
-            // 为重复的外部编码添加错误（不会覆盖原有错误）
+
             if (dupData.duplicates && dupData.duplicates.length > 0) {
               const dupMap = new Map<string, { externalCode: string; orderNo: string; status: string }>(
                 dupData.duplicates.map((d: { externalCode: string; orderNo: string; status: string }) => [d.externalCode.toLowerCase(), d])
               );
-              transformedData.forEach((row) => {
+              for (const row of transformedData) {
                 if (row.externalCode && dupMap.has(String(row.externalCode).toLowerCase())) {
                   const dup = dupMap.get(String(row.externalCode).toLowerCase())!;
                   const dbError: ParseError = {
@@ -337,7 +432,7 @@ export default function ImportPage() {
                   allErrors.push(dbError);
                   validData = validData.filter((d) => d !== row);
                 }
-              });
+              }
             }
           } catch (e) {
             console.error("Check duplicates error:", e);
@@ -356,9 +451,9 @@ export default function ImportPage() {
         errors: allErrors,
         step: hasAutoMapping ? "preview" : "mapping",
         isProcessing: false,
+        progress: 100,
       }));
 
-      // 如果有自动映射，设置转换后的数据
       if (hasAutoMapping) {
         setEditableData(transformedData);
         setNewRows(new Set());

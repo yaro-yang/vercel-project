@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+// 分批查询，每批最大数量
+const BATCH_SIZE = 500;
+
 /**
  * POST /api/orders/check-duplicates - 检查外部编码是否已存在
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { externalCodes } = body;
+    let { externalCodes } = body;
 
     if (!Array.isArray(externalCodes) || externalCodes.length === 0) {
       return NextResponse.json({
@@ -26,32 +29,40 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 查询数据库中已存在的外部编码
-    const existingOrders = await prisma.order.findMany({
-      where: {
-        externalCode: {
-          in: validCodes,
-          mode: "insensitive",
-        },
-      },
-      select: {
-        externalCode: true,
-        orderNo: true,
-        status: true,
-      },
-    });
+    // 分批查询
+    const allDuplicates: Array<{ externalCode: string; orderNo: string; status: string }> = [];
 
-    // 返回已存在的外部编码及其订单信息
-    const duplicates = existingOrders.map((order) => ({
-      externalCode: order.externalCode,
-      orderNo: order.orderNo,
-      status: order.status,
-    }));
+    for (let i = 0; i < validCodes.length; i += BATCH_SIZE) {
+      const batch = validCodes.slice(i, i + BATCH_SIZE);
+
+      const existingOrders = await prisma.order.findMany({
+        where: {
+          externalCode: {
+            in: batch,
+            mode: "insensitive",
+          },
+        },
+        select: {
+          externalCode: true,
+          orderNo: true,
+          status: true,
+        },
+      });
+
+      allDuplicates.push(
+        ...existingOrders.map((order) => ({
+          externalCode: order.externalCode,
+          orderNo: order.orderNo,
+          status: order.status,
+        }))
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      duplicates,
-      count: duplicates.length,
+      duplicates: allDuplicates,
+      count: allDuplicates.length,
+      totalChecked: validCodes.length,
     });
   } catch (error) {
     console.error("POST /api/orders/check-duplicates error:", error);
