@@ -153,24 +153,11 @@ export function detectHeaderRow(jsonData: unknown[][]): number {
 }
 
 /**
- * 清理表头文本（去除合并单元格带来的空值）
+ * 清理表头文本（处理合并单元格，但保留原始空值）
+ * 只保留非空单元格，空单元格保持为空字符串
  */
 export function cleanHeaders(rawHeaders: unknown[]): string[] {
-  const headers: string[] = [];
-  let lastNonEmpty = "";
-  
-  for (const h of rawHeaders) {
-    const str = String(h || "").trim();
-    if (str) {
-      lastNonEmpty = str;
-      headers.push(str);
-    } else {
-      // 如果是空值，使用上一个非空值（处理合并单元格）
-      headers.push(lastNonEmpty);
-    }
-  }
-  
-  return headers;
+  return rawHeaders.map((h) => String(h || "").trim());
 }
 
 /**
